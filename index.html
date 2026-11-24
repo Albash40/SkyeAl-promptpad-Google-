@@ -4582,44 +4582,54 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
 const AuthManager = {
     currentScreen: 'welcome',
 
-       init: function() {
+         init: async function() {
+        // 1. Manually check if there is a session in the URL (from Google Login)
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        
+        if (session) {
+            this.handleUserLogin(session.user);
+        } else {
+            this.showScreen('welcome');
+        }
+
+        // 2. Still listen for state changes for regular email/password logins
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
             if (session) {
-                console.log("User logged in!", session.user.email);
-                const user = session.user;
-                
-                try {
-                    // Try to check if the user exists in the database
-                    const { data, error } = await supabaseClient
-                        .from('users')
-                        .select('id')
-                        .eq('id', user.id)
-                        .single();
-
-                    // If they don't exist (new Google user), create their profile
-                    if (!data) {
-                        console.log("Creating new user profile in database...");
-                        await supabaseClient.from('users').insert([{
-                            id: user.id,
-                            name: user.user_metadata.full_name || user.user_metadata.name || 'Google User',
-                            email: user.email,
-                            is_premium: false,
-                            plan: 'free',
-                            usage_count: 0
-                        }]);
-                    }
-                } catch (dbError) {
-                    // Log the error, but DO NOT stop the app from opening!
-                    console.error("Database error during login:", dbError);
-                }
-                
-                // ALWAYS hide the login screen if we have a session
-                this.hideAuthOverlay();
+                this.handleUserLogin(session.user);
             } else {
                 this.showScreen('welcome');
             }
         });
     },
+
+    // Helper function to handle database creation and hide the overlay
+    handleUserLogin: async function(user) {
+        try {
+            // Check if user exists in the database
+            const { data, error } = await supabaseClient
+                .from('users')
+                .select('id')
+                .eq('id', user.id)
+                .single();
+
+            // If they don't exist (new Google user), create their profile
+            if (!data) {
+                await supabaseClient.from('users').insert([{
+                    id: user.id,
+                    name: user.user_metadata.full_name || user.user_metadata.name || 'Google User',
+                    email: user.email,
+                    is_premium: false,
+                    plan: 'free',
+                    usage_count: 0
+                }]);
+            }
+        } catch (dbError) {
+            console.error("Database error during login:", dbError);
+        }
+        
+        // ALWAYS hide the login screen if we have a session
+        this.hideAuthOverlay();
+    }, 
 
     showScreen: function(screenName) {
         document.querySelectorAll('.auth-screen').forEach(screen => screen.classList.remove('active'));
