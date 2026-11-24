@@ -4781,7 +4781,7 @@ const AuthManager = {
         const { data, error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin // This will use http://127.0.0.1:5500
+                redirectTo: window.location.href // This will use http://127.0.0.1:5500
             }
         });
         if (error) {
