@@ -4587,46 +4587,57 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
 const AuthManager = {
     currentScreen: 'welcome',
 
-           init: async function() {
-        console.log("1. App started. Checking URL...");
+            init: function() {
+        console.log("AuthManager: Waiting for Supabase to process URL...");
 
-        // --- BRUTE FORCE CHECK ---
-        // If the URL has 'access_token' or 'code', Google just sent us back.
-        if (window.location.href.includes('access_token') || window.location.href.includes('code=')) {
-            console.log("2. Token found in URL! Forcing app to open...");
-            
-            // 1. Hide the overlay immediately
-            const overlay = document.getElementById('auth-overlay');
-            if (overlay) {
-                overlay.style.display = 'none';
-            } else {
-                console.error("FATAL: Could not find the auth-overlay div!");
-            }
+        // We ONLY use the listener. This catches the token the moment Supabase reads it.
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log("🔴 Auth Event:", event); 
+            console.log("👤 Session:", session ? session.user.email : "None");
 
-            // 2. Wait a second for Supabase to save the session, then clean the URL
-            setTimeout(async () => {
-                const { data } = await supabaseClient.auth.getSession();
-                if (data.session) {
-                    console.log("3. Session confirmed! Cleaning URL...");
-                    window.history.replaceState(null, null, window.location.pathname);
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+                if (session) {
+                    console.log("✅ SUCCESS! Hiding login screen...");
+                    
+                    // Force the overlay to hide immediately
+                    const overlay = document.getElementById('auth-overlay');
+                    if (overlay) {
+                        overlay.style.display = 'none';
+                    } else {
+                        console.error("FATAL: Could not find the auth-overlay div!");
+                    }
+                    
+                    // Sync database in the background
+                    try {
+                        const { data } = await supabaseClient
+                            .from('users')
+                            .select('id')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (!data) {
+                            await supabaseClient.from('users').insert([{
+                                id: session.user.id,
+                                name: session.user.user_metadata.full_name || 'Google User',
+                                email: session.user.email,
+                                is_premium: false,
+                                plan: 'free',
+                                usage_count: 0
+                            }]);
+                        }
+                    } catch (dbError) {
+                        console.error("Database sync error:", dbError);
+                    }
+                } else {
+                    console.log("❌ No session found. Showing login screen.");
+                    this.showScreen('welcome');
                 }
-            }, 1000);
-            
-            return; // Stop running the rest of the init
-        }
-
-        // --- NORMAL LOAD (No token in URL) ---
-        console.log("2. No token. Checking for existing session...");
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        
-        if (session) {
-            console.log("3. Session found! Opening app...");
-            const overlay = document.getElementById('auth-overlay');
-            if (overlay) overlay.style.display = 'none';
-        } else {
-            console.log("3. No session. Showing login screen.");
-            this.showScreen('welcome');
-        }
+            } else if (event === 'SIGNED_OUT') {
+                const overlay = document.getElementById('auth-overlay');
+                if (overlay) overlay.style.display = 'flex';
+                this.showScreen('welcome');
+            }
+        });
     },
 
     // Helper function to handle database creation and hide the overlay
