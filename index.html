@@ -4587,58 +4587,34 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
 const AuthManager = {
     currentScreen: 'welcome',
 
-            init: function() {
-        console.log("AuthManager: Waiting for Supabase to process URL...");
+          
+init: async function() {
+    console.log("Checking Supabase authentication...");
 
-        // We ONLY use the listener. This catches the token the moment Supabase reads it.
-        supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            console.log("🔴 Auth Event:", event); 
-            console.log("👤 Session:", session ? session.user.email : "None");
+    try {
+        // Wait for Supabase to restore the OAuth session
+        const { data: { session }, error } =
+            await supabaseClient.auth.getSession();
 
-            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
-                if (session) {
-                    console.log("✅ SUCCESS! Hiding login screen...");
-                    
-                    // Force the overlay to hide immediately
-                    const overlay = document.getElementById('auth-overlay');
-                    if (overlay) {
-                        overlay.style.display = 'none';
-                    } else {
-                        console.error("FATAL: Could not find the auth-overlay div!");
-                    }
-                    
-                    // Sync database in the background
-                    try {
-                        const { data } = await supabaseClient
-                            .from('users')
-                            .select('id')
-                            .eq('id', session.user.id)
-                            .single();
+        if (error) throw error;
 
-                        if (!data) {
-                            await supabaseClient.from('users').insert([{
-                                id: session.user.id,
-                                name: session.user.user_metadata.full_name || 'Google User',
-                                email: session.user.email,
-                                is_premium: false,
-                                plan: 'free',
-                                usage_count: 0
-                            }]);
-                        }
-                    } catch (dbError) {
-                        console.error("Database sync error:", dbError);
-                    }
-                } else {
-                    console.log("❌ No session found. Showing login screen.");
-                    this.showScreen('welcome');
-                }
-            } else if (event === 'SIGNED_OUT') {
-                const overlay = document.getElementById('auth-overlay');
-                if (overlay) overlay.style.display = 'flex';
-                this.showScreen('welcome');
-            }
-        });
-    },
+        if (session && session.user) {
+            console.log("Authenticated user found:", session.user.email);
+
+            // Create profile if necessary and open the app
+            await this.handleUserLogin(session.user);
+
+        } else {
+            console.log("No authenticated session.");
+            this.showScreen('welcome');
+        }
+
+    } catch (error) {
+        console.error("Authentication initialization failed:", error);
+        this.showScreen('welcome');
+    }
+},
+
 
     // Helper function to handle database creation and hide the overlay
     handleUserLogin: async function(user) {
@@ -5524,7 +5500,8 @@ toggleCatalog: function() {
             }
         };
 
-
+// Start authentication when the page loads
+AuthManager.init();
         // ==================== SKYE AI CHAT WIDGET ====================
 /* Configuration - Update these settings */
 // =================
