@@ -4587,44 +4587,45 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
 const AuthManager = {
     currentScreen: 'welcome',
 
-    init: function() {
-        // This listener runs the moment the page loads, catching the OAuth token
-        supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth Event:", event);
+        init: async function() {
+        console.log("Checking for session...");
 
-            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+        // 1. Check if there is a token in the URL (Google Login Redirect)
+        const hash = window.location.hash;
+        
+        if (hash && hash.includes('access_token')) {
+            console.log("Token found in URL! Waiting for Supabase to process...");
+            
+            // Wait 1.5 seconds for the SDK to process the token
+            setTimeout(async () => {
+                const { data: { session }, error } = await supabaseClient.auth.getSession();
+                
+                if (error) {
+                    console.error("Session error:", error);
+                    alert("Auth Error: " + error.message);
+                }
+                
                 if (session) {
-                    // Hide the overlay IMMEDIATELY
-                    this.hideAuthOverlay(); 
-                    
-                    // Then sync the user to the database in the background
-                    try {
-                        const { data } = await supabaseClient
-                            .from('users')
-                            .select('id')
-                            .eq('id', session.user.id)
-                            .single();
-
-                        if (!data) {
-                            await supabaseClient.from('users').insert([{
-                                id: session.user.id,
-                                name: session.user.user_metadata.full_name || 'Google User',
-                                email: session.user.email,
-                                is_premium: false,
-                                plan: 'free',
-                                usage_count: 0
-                            }]);
-                        }
-                    } catch (dbError) {
-                        console.error("Database sync error:", dbError);
-                    }
+                    console.log("Session established!", session.user.email);
+                    // Clear the ugly token from the URL
+                    window.history.replaceState(null, null, window.location.pathname);
+                    // Hide the login screen
+                    this.hideAuthOverlay();
                 } else {
+                    console.log("No session found after delay.");
                     this.showScreen('welcome');
                 }
-            } else if (event === 'SIGNED_OUT') {
-                this.showScreen('welcome');
-            }
-        });
+            }, 1500);
+            return;
+        }
+
+        // 2. Normal load (no token in URL)
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            this.hideAuthOverlay();
+        } else {
+            this.showScreen('welcome');
+        }
     },
 
     // Helper function to handle database creation and hide the overlay
