@@ -4587,47 +4587,44 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
 const AuthManager = {
     currentScreen: 'welcome',
 
-          
-init: async function() {
-    console.log("Checking Supabase authentication...");
+               init: function() {
+        console.log("🚀 AuthManager listening...");
 
-    try {
-        // Wait for Supabase to restore the OAuth session
-        const { data: { session }, error } =
-            await supabaseClient.auth.getSession();
+        // This listener handles the initial load AND the Google redirect
+        supabaseClient.auth.onAuthStateChange(async (event, session) => {
+            console.log("🔴 Auth Event:", event);
 
-        if (error) throw error;
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+                if (session) {
+                    await this.handleUserLogin(session.user);
+                } else {
+                    this.showScreen('welcome');
+                }
+            } else if (event === 'SIGNED_OUT') {
+                // Force reload to clear all states on logout
+                window.location.reload(); 
+            }
+        });
+    },
 
-        if (session && session.user) {
-            console.log("Authenticated user found:", session.user.email);
-
-            // Create profile if necessary and open the app
-            await this.handleUserLogin(session.user);
-
-        } else {
-            console.log("No authenticated session.");
-            this.showScreen('welcome');
-        }
-
-    } catch (error) {
-        console.error("Authentication initialization failed:", error);
-        this.showScreen('welcome');
-    }
-},
-
-
-    // Helper function to handle database creation and hide the overlay
     handleUserLogin: async function(user) {
+        console.log("👤 Handling login for:", user.email);
+
+        // 1. Hide overlay IMMEDIATELY so the user sees the app loading
+        const overlay = document.getElementById('auth-overlay');
+        if (overlay) overlay.style.display = 'none';
+
         try {
-            // Check if user exists in the database
-            const { data, error } = await supabaseClient
+            // 2. Check if user exists in DB
+            const { data } = await supabaseClient
                 .from('users')
                 .select('id')
                 .eq('id', user.id)
                 .single();
 
-            // If they don't exist (new Google user), create their profile
+            // 3. If they don't exist, create them AND WAIT for it to finish
             if (!data) {
+                console.log("Creating new user in database...");
                 await supabaseClient.from('users').insert([{
                     id: user.id,
                     name: user.user_metadata.full_name || user.user_metadata.name || 'Google User',
@@ -4638,12 +4635,19 @@ init: async function() {
                 }]);
             }
         } catch (dbError) {
-            console.error("Database error during login:", dbError);
+            console.error("Database error:", dbError);
         }
-        
-        // ALWAYS hide the login screen if we have a session
-        this.hideAuthOverlay();
-    }, 
+
+        // 4. ONLY after the database is synced, initialize the app UI
+        if (typeof app !== 'undefined' && !app.isInitialized) {
+            console.log("🎉 Initializing App UI...");
+            app.isInitialized = true;
+            app.init(); // This triggers app.initUI() which loads the profile name
+        } else if (typeof app !== 'undefined' && app.isInitialized) {
+            // If app is already running (e.g. token refreshed), just update the UI
+            app.initUI(); 
+        }
+    },
 
     showScreen: function(screenName) {
         document.querySelectorAll('.auth-screen').forEach(screen => screen.classList.remove('active'));
@@ -4801,17 +4805,18 @@ init: async function() {
             btn.disabled = false;
         }
     },
-        signInWithGoogle: async function() {
-        const { data, error } = await supabaseClient.auth.signInWithOAuth({
+           signInWithGoogle: async function() {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin // This will use http://127.0.0.1:5500
+                redirectTo: window.location.origin,
+                queryParams: {
+                    prompt: 'select_account' // Forces Google to ask which account to use
+                }
             }
         });
-        if (error) {
-            utils.showNotification(error.message, 'error');
-        }
-    },   
+        if (error) utils.showNotification(error.message, 'error');
+    },
     loginAsGuest: function() {
         utils.saveToLocalStorage('skyeai_guest_session', { type: 'guest', name: 'Guest User', email: 'guest@skyeai.com', isPremium: false });
         this.hideAuthOverlay();
@@ -4909,6 +4914,8 @@ const UpgradeManager = {
 };
         // ==================== APP INITIALIZATION ====================
         const app = {
+            isInialized: false,
+            currentSection: 'home',
             init: function() {
                 this.loadState();
                 this.setupEventListeners();
@@ -5499,9 +5506,10 @@ toggleCatalog: function() {
                 }
             }
         };
+document.addEventListener('DOMContentLoaded', () => {
+    AuthManager.init();
+});
 
-// Start authentication when the page loads
-AuthManager.init();
         // ==================== SKYE AI CHAT WIDGET ====================
 /* Configuration - Update these settings */
 // =================
