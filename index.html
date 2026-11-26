@@ -4587,43 +4587,44 @@ const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
 const AuthManager = {
     currentScreen: 'welcome',
 
-        init: async function() {
-        console.log("Checking for session...");
+           init: async function() {
+        console.log("1. App started. Checking URL...");
 
-        // 1. Check if there is a token in the URL (Google Login Redirect)
-        const hash = window.location.hash;
-        
-        if (hash && hash.includes('access_token')) {
-            console.log("Token found in URL! Waiting for Supabase to process...");
+        // --- BRUTE FORCE CHECK ---
+        // If the URL has 'access_token' or 'code', Google just sent us back.
+        if (window.location.href.includes('access_token') || window.location.href.includes('code=')) {
+            console.log("2. Token found in URL! Forcing app to open...");
             
-            // Wait 1.5 seconds for the SDK to process the token
+            // 1. Hide the overlay immediately
+            const overlay = document.getElementById('auth-overlay');
+            if (overlay) {
+                overlay.style.display = 'none';
+            } else {
+                console.error("FATAL: Could not find the auth-overlay div!");
+            }
+
+            // 2. Wait a second for Supabase to save the session, then clean the URL
             setTimeout(async () => {
-                const { data: { session }, error } = await supabaseClient.auth.getSession();
-                
-                if (error) {
-                    console.error("Session error:", error);
-                    alert("Auth Error: " + error.message);
-                }
-                
-                if (session) {
-                    console.log("Session established!", session.user.email);
-                    // Clear the ugly token from the URL
+                const { data } = await supabaseClient.auth.getSession();
+                if (data.session) {
+                    console.log("3. Session confirmed! Cleaning URL...");
                     window.history.replaceState(null, null, window.location.pathname);
-                    // Hide the login screen
-                    this.hideAuthOverlay();
-                } else {
-                    console.log("No session found after delay.");
-                    this.showScreen('welcome');
                 }
-            }, 1500);
-            return;
+            }, 1000);
+            
+            return; // Stop running the rest of the init
         }
 
-        // 2. Normal load (no token in URL)
+        // --- NORMAL LOAD (No token in URL) ---
+        console.log("2. No token. Checking for existing session...");
         const { data: { session } } = await supabaseClient.auth.getSession();
+        
         if (session) {
-            this.hideAuthOverlay();
+            console.log("3. Session found! Opening app...");
+            const overlay = document.getElementById('auth-overlay');
+            if (overlay) overlay.style.display = 'none';
         } else {
+            console.log("3. No session. Showing login screen.");
             this.showScreen('welcome');
         }
     },
