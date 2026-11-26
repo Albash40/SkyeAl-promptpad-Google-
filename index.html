@@ -4577,26 +4577,51 @@ async function uploadDataToSupabase() {
 // ==================== SUPABASE AUTHENTICATION MANAGER ====================
 const supabaseUrl = 'https://cvulleqsmkbaxldkzefw.supabase.co';
 const supabaseKey = 'sb_publishable_SKG_rMqv1sC1on1IBaHfNg_WRuFN43b';
-const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
-
+const supabaseClient = supabase.createClient(supabaseUrl, supabaseKey, {
+    auth: {
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true
+    }
+});
 const AuthManager = {
     currentScreen: 'welcome',
 
-         init: async function() {
-        // 1. Manually check if there is a session in the URL (from Google Login)
-        const { data: { session }, error } = await supabaseClient.auth.getSession();
-        
-        if (session) {
-            this.handleUserLogin(session.user);
-        } else {
-            this.showScreen('welcome');
-        }
-
-        // 2. Still listen for state changes for regular email/password logins
+    init: function() {
+        // This listener runs the moment the page loads, catching the OAuth token
         supabaseClient.auth.onAuthStateChange(async (event, session) => {
-            if (session) {
-                this.handleUserLogin(session.user);
-            } else {
+            console.log("Auth Event:", event);
+
+            if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+                if (session) {
+                    // Hide the overlay IMMEDIATELY
+                    this.hideAuthOverlay(); 
+                    
+                    // Then sync the user to the database in the background
+                    try {
+                        const { data } = await supabaseClient
+                            .from('users')
+                            .select('id')
+                            .eq('id', session.user.id)
+                            .single();
+
+                        if (!data) {
+                            await supabaseClient.from('users').insert([{
+                                id: session.user.id,
+                                name: session.user.user_metadata.full_name || 'Google User',
+                                email: session.user.email,
+                                is_premium: false,
+                                plan: 'free',
+                                usage_count: 0
+                            }]);
+                        }
+                    } catch (dbError) {
+                        console.error("Database sync error:", dbError);
+                    }
+                } else {
+                    this.showScreen('welcome');
+                }
+            } else if (event === 'SIGNED_OUT') {
                 this.showScreen('welcome');
             }
         });
@@ -4791,7 +4816,7 @@ const AuthManager = {
         const { data, error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.href.split('#')[0] // This will use http://127.0.0.1:5500
+                redirectTo: window.location.origin // This will use http://127.0.0.1:5500
             }
         });
         if (error) {
