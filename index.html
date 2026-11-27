@@ -4607,27 +4607,30 @@ const AuthManager = {
         });
     },
 
-    handleUserLogin: async function(user) {
+       handleUserLogin: async function(user) {
         console.log("👤 Handling login for:", user.email);
 
-        // 1. Hide overlay IMMEDIATELY so the user sees the app loading
-        const overlay = document.getElementById('auth-overlay');
-        if (overlay) overlay.style.display = 'none';
+        // 1. Hide the login overlay
+        const authOverlay = document.getElementById('auth-overlay');
+        if (authOverlay) authOverlay.style.display = 'none';
+
+        // 2. KILL THE LOADING SCREEN! (This fixes the unclickable buttons)
+        const loadingOverlay = document.querySelector('.loading-overlay');
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
 
         try {
-            // 2. Check if user exists in DB
+            // Check if user exists in DB
             const { data } = await supabaseClient
                 .from('users')
                 .select('id')
                 .eq('id', user.id)
                 .single();
 
-            // 3. If they don't exist, create them AND WAIT for it to finish
+            // Create profile if new
             if (!data) {
-                console.log("Creating new user in database...");
                 await supabaseClient.from('users').insert([{
                     id: user.id,
-                    name: user.user_metadata.full_name || user.user_metadata.name || 'Google User',
+                    name: user.user_metadata.full_name || 'Google User',
                     email: user.email,
                     is_premium: false,
                     plan: 'free',
@@ -4638,13 +4641,13 @@ const AuthManager = {
             console.error("Database error:", dbError);
         }
 
-        // 4. ONLY after the database is synced, initialize the app UI
+        // 3. Initialize the App exactly once
         if (typeof app !== 'undefined' && !app.isInitialized) {
             console.log("🎉 Initializing App UI...");
             app.isInitialized = true;
-            app.init(); // This triggers app.initUI() which loads the profile name
+            app.init(); 
         } else if (typeof app !== 'undefined' && app.isInitialized) {
-            // If app is already running (e.g. token refreshed), just update the UI
+            // If already initialized, just refresh the profile data
             app.initUI(); 
         }
     },
@@ -4823,10 +4826,16 @@ const AuthManager = {
         utils.showNotification('Continuing as Guest.', 'info');
     },
 
-    logout: async function() {
+       logout: async function() {
+        console.log("Logging out...");
         await supabaseClient.auth.signOut();
-        localStorage.removeItem('skyeai_guest_session');
-        window.location.reload();
+        
+        // Wipe all local storage to prevent ghost sessions
+        localStorage.clear(); 
+        sessionStorage.clear();
+        
+        // Force a hard reload back to the main page
+        window.location.href = window.location.origin;
     },
 
     hideAuthOverlay: function() {
