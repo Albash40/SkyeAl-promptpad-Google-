@@ -4010,6 +4010,9 @@ async function uploadDataToSupabase() {
                             }, 300);
                         } else if (type === 'template') {
                             app.switchSection('templates');
+                                    if (pushHistory) {
+            history.pushState({ view: 'templateDetail', id: id }, '', `#template/${id}`);
+        }
                             setTimeout(() => {
                                 renderFunctions.renderTemplateDetail(id);
                             }, 300);
@@ -4166,7 +4169,7 @@ async function uploadDataToSupabase() {
                 this.renderTemplatesHome(filteredData);
             },
 
-            renderTutorialDetail: function(id) {
+            renderTutorialDetail: function(id, pushHistory = true) {
                 const tutorial = dataFunctions.getTutorialById(id);
                 if (!tutorial) return;
                 
@@ -4286,16 +4289,13 @@ async function uploadDataToSupabase() {
                 
                 domElements.tutorialsSection.innerHTML = detailHTML;
                 app.switchSection('tutorials');
+                        if (pushHistory) {
+            history.pushState({ view: 'tutorialDetail', id: id }, '', `#tutorial/${id}`);
+        }
                 
                 document.getElementById('back-to-tutorials').addEventListener('click', function() {
-                    app.switchSection('home');
-                    setTimeout(() => {
-                        domElements.tutorialsContainer.classList.remove('hidden');
-                        domElements.templatesContainer.classList.add('hidden');
-                        domElements.stickyButtons[0].classList.add('active');
-                        domElements.stickyButtons[1].classList.remove('active');
-                    }, 10);
-                });
+            history.back(); 
+        });
                 
                 document.querySelectorAll('.quiz-option').forEach(option => {
                     option.addEventListener('click', function() {
@@ -4333,7 +4333,7 @@ async function uploadDataToSupabase() {
                 }
             },
 
-            renderTemplateDetail: function(id) {
+            renderTemplateDetail: function(id, pushHistory = true) {
                 const template = dataFunctions.getTemplateById(id);
                 if (!template) return;
                 
@@ -4408,15 +4408,9 @@ async function uploadDataToSupabase() {
                 domElements.templatesSection.innerHTML = detailHTML;
                 app.switchSection('templates');
                 
-                document.getElementById('back-to-templates').addEventListener('click', function() {
-                    app.switchSection('home');
-                    setTimeout(() => {
-                        domElements.tutorialsContainer.classList.add('hidden');
-                        domElements.templatesContainer.classList.remove('hidden');
-                        domElements.stickyButtons[0].classList.remove('active');
-                        domElements.stickyButtons[1].classList.add('active');
-                    }, 10);
-                });
+                     document.getElementById('back-to-templates').addEventListener('click', function() {
+            history.back(); 
+        });
                 
                 document.getElementById('copy-template-detail').addEventListener('click', function() {
                     utils.copyToClipboard(template.prompt).then(() => {
@@ -4928,6 +4922,21 @@ const UpgradeManager = {
             init: function() {
                 this.loadState();
                 this.setupEventListeners();
+                        // Handle browser/phone back button
+        window.addEventListener('popstate', (event) => {
+            if (event.state) {
+                if (event.state.view === 'tutorialDetail') {
+                    renderFunctions.renderTutorialDetail(event.state.id, false);
+                } else if (event.state.view === 'templateDetail') {
+                    renderFunctions.renderTemplateDetail(event.state.id, false);
+                } else if (event.state.section) {
+                    app.switchSection(event.state.section, false);
+                }
+            } else {
+                // If no state, default to Home
+                app.switchSection('home', false);
+            }
+        });
                 this.initUI();
                 
                 // Global search functionality
@@ -5315,7 +5324,7 @@ toggleSidebar: function() {
     domElements.sidebarOverlay.classList.toggle('active');
     domElements.sidebar.classList.toggle('active');
 },
-switchSection: function(sectionId) {
+switchSection: function(sectionId, pushHistory = true) {
     // 1. Update Bottom Nav Highlight
     document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.remove('active');
@@ -5340,6 +5349,10 @@ switchSection: function(sectionId) {
     }
    
     state.currentSection = sectionId;
+            // Save to History!
+        if (pushHistory) {
+            history.pushState({ section: sectionId }, '', `#${sectionId}`);
+        }
    
     if (sectionId === 'home') {
         setTimeout(() => {
