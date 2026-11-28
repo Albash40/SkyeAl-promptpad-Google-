@@ -3684,23 +3684,7 @@ body.skye-ai-no-scroll .bottom-nav {
                 useCase: "Prompt engineering, AI optimization, productivity"
             }
         ];
-async function uploadDataToSupabase() {
-    console.log("Uploading data to Supabase...");
-   
-    // Upload Tutorials
-    for (const tutorial of tutorialsData) {
-        const { error } = await supabaseClient.from('tutorials').upsert(tutorial);
-        if (error) console.error("Error uploading tutorial:", error);
-    }
-   
-    // Upload Templates
-    for (const template of templatesData) {
-        const { error } = await supabaseClient.from('templates').upsert(template);
-        if (error) console.error("Error uploading template:", error);
-    }
-   
-    alert("Data uploaded successfully! Check your Supabase Table Editor.");
-}
+       
 // UNCOMMENT THE LINE BELOW TO UPLOAD (Remove the //)
 
         const motivationalTexts = [
@@ -4669,7 +4653,8 @@ const AuthManager = {
         if (typeof app !== 'undefined' && !app.isInitialized) {
             console.log("🎉 Initializing App UI...");
             app.isInitialized = true;
-            app.init(); 
+            app.init();
+            fetchDataFromSupabase();
         } else if (typeof app !== 'undefined' && app.isInitialized) {
             // If already initialized, just refresh the profile data
             app.initUI(); 
@@ -4945,6 +4930,27 @@ const UpgradeManager = {
         }, 2000);
     }
 };
+async function fetchDataFromSupabase() {
+    try {
+        // Fetch Tutorials
+        const { data: tuts, error: tutError } = await supabaseClient.from('tutorials').select('*').order('id');
+        if (tuts && tuts.length > 0) {
+            tutorialsData = tuts;
+            renderFunctions.renderTutorialsHome();
+            renderFunctions.renderCatalog();
+        }
+
+        // Fetch Templates
+        const { data: temps, error: tempError } = await supabaseClient.from('templates').select('*').order('id');
+        if (temps && temps.length > 0) {
+            templatesData = temps;
+            renderFunctions.renderTemplatesHome();
+            renderFunctions.renderCatalog();
+        }
+    } catch (err) {
+        console.error("Error fetching data:", err);
+    }
+}
         // ==================== APP INITIALIZATION ====================
         const app = {
             isInialized: false,
@@ -4968,6 +4974,14 @@ const UpgradeManager = {
             }
         });
                 this.initUI();
+        
+        // Check URL hash on reload
+        if (window.location.hash) {
+            const section = window.location.hash.replace('#', '');
+            if (['home', 'library', 'profile'].includes(section)) {
+                this.switchSection(section, false);
+            }
+        }
                 
                 // Global search functionality
                 const globalSearch = document.getElementById('global-search');
@@ -5832,42 +5846,13 @@ handleGenerateFinalPrompt: function() {
             true
         );
 },
-       callAI: function(userInput, systemPrompt, isFinal = false) {
-        // 1. Build the conversation history string
-        let historyStr = "";
-        this.state.currentConversation.forEach(msg => {
-            // Don't include the generated cards in the text history
-            if (msg.role === 'ai' && msg.content.includes('skye-ai-generated-card')) return;
-            
-            let roleName = msg.role === 'user' ? 'User' : 'AI';
-            // Strip out HTML tags like the paperclip
-            let cleanContent = msg.content.replace(/<br>.*?<\/small>/g, '').replace(/<[^>]*>?/gm, '');
-            historyStr += `${roleName}: ${cleanContent}\n`;
-        });
-
-        // 2. Append the latest input
-        const fullConversation = `${historyStr}\nUser: ${userInput}\nAI:`;
-
-        // 3. Send to backend
+         callAI: function(userInput, systemPrompt, isFinal = false) {
         supabaseClient.functions.invoke('generate-prompt', {
-            body: { 
-                prompt: fullConversation, 
-                systemPrompt: systemPrompt 
-            }
+            body: { prompt: userInput, systemPrompt: systemPrompt }
         })
         .then(async ({ data, error }) => {
-            this.dom.loading.classList.remove('active');
-            this.state.isLoading = false;
-
-            if (error) {
-                this.addMessage('ai', "⚠️ Error: " + error.message);
-                return;
-            }
-
-            if (!data || data.error) {
-                this.addMessage('ai', "⚠️ " + (data ? data.error : "No data"));
-                return;
-            }
+            if (error) throw new Error(error.message);
+            if (data && data.error) throw new Error(data.error);
 
             const aiText = data.text;
             if (isFinal) {
@@ -5878,9 +5863,13 @@ handleGenerateFinalPrompt: function() {
             }
         })
         .catch((err) => {
+            console.error("AI Fetch Error:", err);
+            this.addMessage('ai', "⚠️ Network error or daily limit reached.");
+        })
+        .finally(() => {
+            // ALWAYS turn off the loading spinner, whether it succeeds or fails
             this.dom.loading.classList.remove('active');
             this.state.isLoading = false;
-            this.addMessage('ai', "⚠️ Network error: " + err.message);
         });
     },
     renderGeneratedPromptCard: function(promptText) {
