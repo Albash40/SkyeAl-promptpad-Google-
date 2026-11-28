@@ -1671,23 +1671,20 @@
 .skye-ai-header { flex-shrink: 0; background: var(--bg-card); color: var(--text-primary); padding: 16px; border-bottom: 1px solid var(--border-light); border-radius: 20px 20px 0 0; }
 .skye-ai-header-content { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .skye-ai-header-title { 
-    font-size: 1.1rem; 
-    font-weight: 800; 
+    font-size: 1.15rem; 
+    font-family: 'Poppins', sans-serif; /* Matches main logo */
+    font-weight: 700; /* Matches main logo */
     display: flex; 
     align-items: center; 
     gap: 8px; 
     
-    /* Realistic Title styling */
-    background: linear-gradient(to bottom, #ffffff 0%, #a0b0d0 100%);
+    /* Bright Blue Gradient matching the logo */
+    background: linear-gradient(135deg, var(--primary-500) 0%, var(--accent-teal) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
-    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
-    letter-spacing: 0.5px;
-}
-.dark-mode .skye-ai-header-title {
-    background: linear-gradient(to bottom, #f8f9fa 0%, #9ca3af 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    letter-spacing: -0.5px; /* Gives it that modern, tight logo look */
 }
 .skye-ai-header-icon-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; transition: color 0.2s; padding: 4px; }
 .skye-ai-header-icon-btn:hover { color: var(--primary-500); }
