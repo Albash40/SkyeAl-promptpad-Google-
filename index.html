@@ -292,11 +292,15 @@
             left: 0;
             width: 100%;
             height: 70px;
-            background-color: rgba(var(--bg-primary), 0.95);
+            background-color: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
             border-bottom: 1px solid var(--border-light);
             z-index: var(--z-fixed);
             transition: all var(--transition-normal);
+        }
+
+        .dark-mode .navbar {
+            background-color: rgba(17, 24, 39, 0.95);
         }
 
         .navbar-content {
@@ -493,7 +497,7 @@
         }
 
         .sidebar-item.active {
-            background-color: rgba(var(--primary-500), 0.1);
+            background-color: rgba(58, 134, 255, 0.1);
             color: var(--primary-500);
             border-left-color: var(--primary-500);
         }
@@ -686,11 +690,7 @@
 
         .global-search-input {
             width: 100%;
-            padding: 18px var(--shadow-xl)
-            18px calc(var(--+--spacing-lg) * 2 + 
-            1rem);
-            padding-right: 
-            calc(var(--spacing-lg) * 2 + 2rem);
+            padding: 18px calc(var(--spacing-lg) * 2 + 2rem) 18px calc(var(--spacing-lg) * 2 + 1rem);
             border: none;
             background: transparent;
             color: var(--text-primary);
@@ -1669,28 +1669,61 @@
 }
 /* Header */
 .skye-ai-header { flex-shrink: 0; background: var(--bg-card); color: var(--text-primary); padding: 16px; border-bottom: 1px solid var(--border-light); border-radius: 20px 20px 0 0; }
-.skye-ai-header-content { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.skye-ai-header-content { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    gap: 12px; 
+}
+
 .skye-ai-header-title { 
     font-size: 1.15rem; 
-    font-family: 'Poppins', sans-serif; /* Matches main logo */
-    font-weight: 700; /* Matches main logo */
+    font-family: 'Poppins', sans-serif;
+    font-weight: 700; 
     display: flex; 
     align-items: center; 
     gap: 8px; 
-    
-    /* Bright Blue Gradient matching the logo */
     background: linear-gradient(135deg, var(--primary-500) 0%, var(--accent-teal) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    
-    letter-spacing: -0.5px; /* Gives it that modern, tight logo look */
+    letter-spacing: -0.5px;
 }
-.skye-ai-header-icon-btn { background: none; border: none; color: var(--text-secondary); cursor: pointer; font-size: 1.1rem; transition: color 0.2s; padding: 4px; }
-.skye-ai-header-icon-btn:hover { color: var(--primary-500); }
-.skye-ai-header-actions { display: flex; gap: 8px; }
-.skye-ai-header-btn { background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-light); padding: 6px 12px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
-.skye-ai-header-btn:hover { background: var(--border-light); }
+
+.skye-ai-header-icon-btn { 
+    background: none; 
+    border: none; 
+    color: var(--text-secondary); 
+    cursor: pointer; 
+    font-size: 1.1rem; 
+    transition: color 0.2s; 
+    padding: 4px; 
+}
+.skye-ai-header-icon-btn:hover { 
+    color: var(--primary-500); 
+}
+
+.skye-ai-header-actions { 
+    display: flex; 
+    gap: 8px; 
+}
+
+.skye-ai-header-btn { 
+    background: var(--bg-tertiary); 
+    color: var(--text-primary); 
+    border: 1px solid var(--border-light); 
+    padding: 6px 12px; 
+    border-radius: 8px; 
+    cursor: pointer; 
+    font-size: 0.85rem; 
+    display: flex; 
+    align-items: center; 
+    gap: 6px; 
+    transition: background 0.2s; 
+}
+.skye-ai-header-btn:hover { 
+    background: var(--border-light); 
+}
 /* Body / Chat Area */
 .skye-ai-body { flex: 1; display: flex; overflow: hidden; background-color: var(--bg-secondary); position: relative; }
 .skye-ai-chat-area { flex: 1; display: flex; flex-direction: column; width: 100%; }
